@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Hills Resort — A resort in the making</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #fff; color: #1d1d1f; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  .progress { position: fixed; top: 0; left: 0; height: 2px; width: 100%; z-index: 60; }
+  .progress span { display: block; height: 100%; background: #1d1d1f;
+    transform-origin: 0 50%; transform: scaleX(0); }
+  /* slim fixed nav — chrome fades in as the logo docks */
+  .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 53px;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 22px;
+    transition: box-shadow .3s ease, transform .35s cubic-bezier(.22,1,.36,1); }
+  .nav.scrolled { box-shadow: 0 1px 12px rgba(0,0,0,.08); }
+  .nav.hide { transform: translateY(-110%); }
+  .nav .chrome { position: absolute; inset: 0; background: rgba(255,255,255,.8);
+    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid #d2d2d7; opacity: 0; pointer-events: none; }
+  .nav .links { position: relative; z-index: 1; display: flex; gap: 22px; font-size: 12px; }
+  .nav a { color: #1d1d1f; text-decoration: none; white-space: nowrap; }
+  .nav a:hover { text-decoration: underline; }
+  .nav .left { justify-self: start; display: flex; align-items: center; }
+  .nav .right { justify-self: end; display: flex; gap: 18px; align-items: center; }
+  .nav .links a { padding: 6px 0; }
+  .nav .links a.active { font-weight: 700; }
+  .menu-btn { display: none; position: relative; z-index: 1; width: 40px; height: 40px; background: none; border: 0; cursor: pointer; }
+  .menu-btn span { display: block; width: 20px; height: 1.5px; background: #1d1d1f; margin: 5px auto; transition: transform .3s ease, opacity .3s ease; }
+  .menu-btn.x span:first-child { transform: translateY(3.25px) rotate(45deg); }
+  .menu-btn.x span:last-child { transform: translateY(-3.25px) rotate(-45deg); }
+  .panel { position: absolute; top: calc(100% + 8px); left: 12px; right: 12px; z-index: 2;
+    background: rgba(255,255,255,.96); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    border: 1px solid #d2d2d7; border-radius: 18px; box-shadow: 0 20px 50px rgba(0,0,0,.14);
+    padding: 10px 8px; display: grid; opacity: 0; transform: translateY(-8px); pointer-events: none;
+    transition: opacity .3s ease, transform .3s cubic-bezier(.22,1,.36,1); }
+  .panel.open { opacity: 1; transform: none; pointer-events: auto; }
+  .panel a { display: flex; justify-content: space-between; align-items: center; padding: 13px 16px;
+    font-size: 17px; font-weight: 600; letter-spacing: -.01em; border-radius: 12px; }
+  .panel a:hover { text-decoration: none; background: #f5f5f7; }
+  .panel a span { font-size: 12px; color: #6e6e73; font-weight: 400; }
+  .nav .mini { position: relative; z-index: 1; justify-self: center; width: 104px; opacity: 0; }
+  .nav .mini img { display: block; width: 100%; height: auto; }
+  .nav .pill { background: #1d1d1f; color: #fff; border-radius: 980px; padding: 7px 16px; font-size: 12px; }
+  /* opening: logo scrolls up and docks into the nav, hero opens through an arch */
+  .intro { position: relative; height: 190svh; background: #fff; }
+  .stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+  .stage-hero { position: absolute; inset: 0; will-change: clip-path; }
+  .slide { position: absolute; inset: 0; opacity: 0; }
+  .slide img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
+  .slide .shade { position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.12) 35%, transparent 55%, rgba(0,0,0,.55)); }
+  .slide .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px clamp(22px,4vw,64px) 96px; color: #fff; }
+  .slide .cap small { font-size: 14px; opacity: .85; }
+  .slide .cap p { font-weight: 700;
+    font-size: clamp(34px, 4.6vw, 64px); letter-spacing: -.022em; line-height: 1.05; margin-top: 8px; }
+  .slide .cap .more { display: block; margin-top: 14px; font-size: 15px; }
+  .hero-ui { position: absolute; bottom: 88px; right: clamp(22px,4vw,64px); display: flex; gap: 8px; z-index: 3; }
+  .hero-ui button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.6);
+    background: transparent; color: #fff; font-size: 16px; cursor: pointer; }
+  .dots { position: absolute; bottom: 100px; left: clamp(22px,4vw,64px); display: flex; gap: 8px; z-index: 3; }
+  .dots i { width: 24px; height: 3px; border-radius: 3px; background: rgba(255,255,255,.4); cursor: pointer; }
+  .dots i.on { background: #fff; }
+  .hero-foot { position: absolute; left: clamp(22px,4vw,64px); right: clamp(22px,4vw,64px); bottom: 22px; z-index: 3;
+    display: flex; justify-content: space-between; gap: 12px; color: rgba(255,255,255,.9);
+    border-top: 1px solid rgba(255,255,255,.35); padding-top: 10px; font-size: 12px; }
+  .veil { position: absolute; inset: 0; background: #fff; z-index: 2; pointer-events: none; }
+  .intro-meta { position: absolute; top: 76px; left: clamp(22px,4vw,64px); right: clamp(22px,4vw,64px); z-index: 3;
+    display: flex; justify-content: space-between; font-size: 12px; letter-spacing: .08em;
+    text-transform: uppercase; color: #6e6e73; pointer-events: none; }
+  .big-logo { position: absolute; top: 50%; left: 50%; width: min(560px, 72vw); z-index: 3;
+    transform: translate(-50%,-50%); transform-origin: center; will-change: transform; transition: opacity .3s ease; }
+  .big-logo img { display: block; width: 100%; height: auto; }
+  .cue { position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); z-index: 3;
+    display: flex; align-items: center; gap: 12px; font-size: 14px; color: #515154;
+    text-decoration: none; white-space: nowrap; }
+  .cue span { font-size: 20px; }
+  /* page bands */
+  .band { padding: 96px 22px; text-align: center; scroll-margin-top: 60px; }
+  .band.gray { background: #f5f5f7; }
+  .band.sage { background: #DCE4D8; }
+  .inner { max-width: 980px; margin: 0 auto; }
+  .wide { max-width: 1080px; margin: 0 auto; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #6e6e73; }
+  .arch { width: 44px; height: 68px; border: 1px solid #86868b; border-bottom: 0;
+    border-radius: 30px 30px 0 0; margin: 0 auto 26px; }
+  h2 { font-weight: 700;
+    font-size: clamp(40px, 5.2vw, 68px); line-height: 1.04; letter-spacing: -.023em; margin: 16px 0 0; text-wrap: balance; }
+  h3 { font-weight: 700;
+    font-size: clamp(26px, 3.2vw, 38px); line-height: 1.12; letter-spacing: -.02em; margin-top: 14px; text-wrap: balance; }
+  .sub { font-size: clamp(17px, 1.9vw, 22px); line-height: 1.55; color: #424245; max-width: 42em; margin: 18px auto 0; text-wrap: pretty; }
+  .body { font-size: 17px; line-height: 1.65; max-width: 38em; margin: 14px auto 0; }
+  .links { margin-top: 22px; display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; align-items: center; font-size: 16px; }
+  .links a { color: #1d1d1f; text-decoration: underline; text-underline-offset: 4px; }
+  .pill-btn { display: inline-block; background: #1d1d1f; color: #fff !important; text-decoration: none !important;
+    border-radius: 980px; padding: 12px 30px; font-size: 15px; font-weight: 500;
+    transition: transform .25s ease, background .25s ease; }
+  .pill-btn:hover { background: #000; transform: scale(1.03); }
+  figure { margin: 40px auto 0; max-width: 980px; background: #fff;
+    border: 1px solid #e8e8ed; border-radius: 24px; padding: 14px;
+    box-shadow: 0 18px 45px rgba(0,0,0,.08);
+    transition: box-shadow .5s ease; }
+  figure:hover { box-shadow: 0 26px 60px rgba(0,0,0,.13); }
+  .well { border-radius: 12px; overflow: hidden; }
+  .well img { display: block; width: 100%; height: auto; border-radius: 12px; }
+  figcaption { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px 24px;
+    margin-top: 6px; padding: 16px 10px 8px; border-top: 1px solid #e8e8ed; text-align: left; }
+  figcaption span:first-child { font-weight: 600;
+    font-size: 15px; letter-spacing: -.01em; color: #1d1d1f; }
+  figcaption span:last-child { font-size: 12px; color: #6e6e73; align-self: start; }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; max-width: 880px; margin: 26px auto 0; text-align: left; }
+  .cols2 p { font-size: 17px; line-height: 1.6; }
+  .cols2 p + p { color: #515154; }
+  .steps { max-width: 980px; margin: 48px auto 0; text-align: left; }
+  .step { display: grid; grid-template-columns: 1fr 1.4fr; gap: 40px; align-items: center; padding: 36px 0; border-top: 1px solid #d2d2d7; }
+  .step:last-child { border-bottom: 1px solid #d2d2d7; }
+  .step figure { margin: 0; }
+  .step .n { font-size: 13px; font-weight: 600; letter-spacing: .06em; color: #6e6e73; }
+  .step p.copy { font-size: 16px; line-height: 1.6; margin-top: 10px; }
+  .step .note { display: block; margin-top: 12px; font-size: 12px; color: #6e6e73; }
+  .pair { display: grid; grid-template-columns: 1.4fr .8fr; gap: 24px; max-width: 1080px; margin: 44px auto 0; align-items: start; }
+  .pair figure { margin: 0; }
+  .aside { font-weight: 700;
+    font-size: clamp(22px, 2.6vw, 32px); line-height: 1.28; letter-spacing: -.018em;
+    text-align: left; align-self: center; }
+  footer { background: #f5f5f7; border-top: 1px solid #d2d2d7; padding: 30px 22px 44px; font-size: 12px; color: #6e6e73; }
+  footer .inner { max-width: 980px; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; align-items: center; }
+  footer a { color: #1d1d1f; }
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s ease, transform .8s cubic-bezier(.22,1,.36,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .reveal.d1 { transition-delay: .08s; } .reveal.d2 { transition-delay: .16s; }
+  @media (max-width: 900px) {
+    .nav { grid-template-columns: 1fr auto 1fr; padding: 0 14px; }
+    .menu-btn { display: block; }
+    .nav .left .links, .nav .right .links { display: none; }
+  }
+  @media (max-width: 860px) {
+    .band { padding: 64px 18px; }
+    .cols2, .pair, .step { grid-template-columns: 1fr; }
+    figcaption { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .slide { transition: none; }
+    * { transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body id="top">
+<div class="progress" aria-hidden="true"><span id="progress"></span></div>
+
+<nav class="nav" id="nav" aria-label="Resort">
+  <div class="left">
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="mobilePanel" aria-label="Open menu"><span></span><span></span></button>
+    <div class="links"><a href="#vision">Vision</a><a href="#cottages">Cottages</a><a href="#spaces">Spaces</a></div>
+  </div>
+  <a class="mini" id="navLogo" href="#top" aria-label="Golden Hills Resort, back to top"><img src="../assets/resort/logo/provisional-catalogue-page-11-color-logo.png" alt="Golden Hills Resort"></a>
+  <div class="right">
+    <div class="links"><a href="#dining">Dining</a><a href="#gatherings">Gatherings</a></div>
+    <a class="pill" href="#visit">Enquire</a>
+  </div>
+  <div class="chrome" id="chrome" aria-hidden="true"></div>
+  <div class="panel" id="mobilePanel">
+    <a href="#vision">Vision <span>01</span></a>
+    <a href="#cottages">Cottages <span>02</span></a>
+    <a href="#spaces">Spaces <span>03</span></a>
+    <a href="#dining">Dining <span>04</span></a>
+    <a href="#gatherings">Gatherings <span>05</span></a>
+  </div>
+</nav>
+
+<!-- Opening: the main site's logo scroll — big identity docks into the nav, hero opens through an arch -->
+<div class="intro" id="intro">
+  <div class="stage" id="stage">
+    <div class="stage-hero" id="stageHero">
+      <div class="slide" data-slide>
+        <img data-hero-img src="../assets/resort/scenes/web/hero-pool-day-desktop-p37.jpg" alt="Artist's impression of a pool courtyard and illuminated arched seat">
+        <div class="shade"></div>
+        <div class="cap" data-cap><small>Pool cottage concept</small><p>A courtyard, imagined.</p></div>
+      </div>
+      <div class="slide" data-slide>
+        <img data-hero-img src="../assets/resort/scenes/web/arrival-reception-lounge-p11.webp" alt="Artist's impression of a double-height reception lounge with garden-facing glazing">
+        <div class="shade"></div>
+        <div class="cap" data-cap><small>Reception lounge concept</small><p>A welcome, taking shape.</p></div>
+      </div>
+      <div class="slide" data-slide>
+        <img data-hero-img src="../assets/resort/scenes/web/cottage-interior-front-bed-p40.jpg" alt="Artist's impression of a cottage bedroom with a timber ceiling and botanical artwork">
+        <div class="shade"></div>
+        <div class="cap" data-cap><small>Cottage interior study · Scheme unconfirmed</small><p>A quieter interior.</p></div>
+      </div>
+      <div class="dots" id="dots"><i class="on"></i><i></i><i></i></div>
+      <div class="hero-ui"><button id="prev" aria-label="Previous slide">←</button><button id="next" aria-label="Next slide">→</button></div>
+      <div class="hero-foot"><span id="footLabel">Pool cottage concept</span><span>Artist's impression. Design subject to change.</span></div>
+    </div>
+    <div class="veil" id="veil" aria-hidden="true"></div>
+    <div class="intro-meta" id="introMeta" aria-hidden="true"><span>Golden Hills Resort</span><span>Concept preview</span></div>
+    <a class="big-logo" id="bigLogo" href="#vision" aria-label="Golden Hills Resort, skip intro">
+      <img src="../assets/resort/logo/provisional-catalogue-page-11-color-logo.png" alt="Golden Hills Resort">
+    </a>
+    <a class="cue" id="cue" href="#vision">Scroll to explore <span aria-hidden="true">↓</span></a>
+  </div>
+</div>
+
+<!-- Vision -->
+<section class="band gray" id="vision">
+  <div class="inner">
+    <p class="eyebrow reveal">Golden Hills Resort · The design vision</p>
+    <h2 class="reveal d1">Not quite a place.<br>Already a feeling.</h2>
+    <div class="cols2 reveal d2">
+      <p>Golden Hills Resort is in development. This is a first look at a collection of spaces imagined for a slower pace.</p>
+      <p>Every property image is an artist's impression, not a photograph of a completed resort. Designs and details may change as the vision takes shape.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Cottages -->
+<section class="band" id="cottages">
+  <div class="inner">
+    <p class="eyebrow reveal">The cottage studies</p>
+    <h2 class="reveal d1">Through the<br>garden gate.</h2>
+    <p class="sub reveal d2">Three views of a proposed retreat. An early design vision, still taking shape.</p>
+  </div>
+  <div class="steps wide">
+    <div class="step reveal">
+      <div><span class="n">01 · Entrance study</span><h3>Beyond the garden gate.</h3>
+        <p class="copy">Stone, planting and a sheltered entrance. The cottage studies begin with a transition from the outside world.</p>
+        <span class="note">Cottage concept · Design subject to change</span></div>
+      <figure><div class="well"><img src="../assets/resort/scenes/web/cottage-entry-p32.jpg" alt="Proposed stone-framed cottage entrance with a garden gate" loading="lazy"></div>
+        <figcaption><span>Entrance study</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    </div>
+    <div class="step reveal">
+      <div><span class="n">02 · Pool courtyard study</span><h3>A little world of your own.</h3>
+        <p class="copy">At the centre of the proposal: an intimate courtyard, with water bringing a different rhythm to the space.</p>
+        <span class="note">Cottage concept · Design subject to change</span></div>
+      <figure><div class="well"><img src="../assets/resort/scenes/web/cottage-pool-overhead-p33.jpg" alt="Overhead design view of a cottage, pool and enclosed courtyard" loading="lazy"></div>
+        <figcaption><span>Pool courtyard study</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    </div>
+    <div class="step reveal">
+      <div><span class="n">03 · Poolside terrace study</span><h3>Room to simply be.</h3>
+        <p class="copy">A shaded seat. A quieter corner. The terrace study explores how a moment of pause might feel.</p>
+        <span class="note">Cottage concept · Design subject to change</span></div>
+      <figure><div class="well"><img src="../assets/resort/scenes/web/cottage-pool-terrace-p34.jpg" alt="Proposed cottage terrace with shaded seating beside the pool" loading="lazy"></div>
+        <figcaption><span>Poolside terrace study</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- Spaces -->
+<section class="band gray" id="spaces">
+  <div class="inner">
+    <p class="eyebrow reveal">Arrival &amp; interiors</p>
+    <h2 class="reveal d1">Outside, the world.<br>Inside, a quieter one.</h2>
+    <p class="sub reveal d2">From the first welcome to the cottage interior, these studies explore a softer sense of arrival.</p>
+  </div>
+  <div class="wide">
+    <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/arrival-reception-lounge-p11.webp" alt="Double-height reception lounge concept with full-height glazing and a patterned floor" loading="lazy"></div>
+      <figcaption><span>Reception lounge concept</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    <div class="pair">
+      <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/cottage-interior-front-bed-p40.jpg" alt="Cottage bedroom concept with timber ceiling, botanical art and a low bed" loading="lazy"></div>
+        <figcaption><span>Cottage interior study</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+      <p class="body reveal d1" style="text-align:left">Warm timber. Soft light. A possible direction for the cottage interiors, awaiting final selection.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Dining -->
+<section class="band sage" id="dining">
+  <div class="inner">
+    <p class="eyebrow reveal">Around the table</p>
+    <h2 class="reveal d1">Good company.<br>Different moods.</h2>
+    <p class="sub reveal d2">Early restaurant studies explore the spaces where people might gather over a meal. The designs and dining offerings are not yet confirmed.</p>
+  </div>
+  <div class="wide">
+    <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/dining-veg-seating-p13.webp" alt="Vegetarian dining concept with pendant lighting and upholstered seating" loading="lazy"></div>
+      <figcaption><span>Vegetarian dining concept</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/dining-non-veg-aisle-p07.webp" alt="Non-vegetarian restaurant concept with a central aisle and curved timber detailing" loading="lazy"></div>
+      <figcaption><span>Non-vegetarian dining concept</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    <p class="aside reveal" style="text-align:center; margin-top:36px">A place at the table.<br>A new part of the story.</p>
+  </div>
+</section>
+
+<!-- Evening -->
+<section class="band gray">
+  <div class="inner">
+    <p class="eyebrow reveal">Evening</p>
+    <h2 class="reveal d1">After hours.</h2>
+  </div>
+  <div class="wide">
+    <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/evening-bar-wide-p09.jpg" alt="Bar lounge concept with patterned flooring, green banquettes and a warmly lit counter" loading="lazy"></div>
+      <figcaption><span>Bar lounge concept</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    <p class="body reveal d1">A richer palette.<br>Another atmosphere.</p>
+    <p class="sub reveal d2">This bar-area study explores an evening setting. Its design remains subject to approval.</p>
+  </div>
+</section>
+
+<!-- Gatherings -->
+<section class="band" id="gatherings">
+  <div class="inner">
+    <p class="eyebrow reveal">Room to gather</p>
+    <h2 class="reveal d1">Better, together.</h2>
+  </div>
+  <div class="wide">
+    <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/gatherings-banquet-p03.webp" alt="Conference hall concept with round banquet tables beneath a timber-framed ceiling" loading="lazy"></div>
+      <figcaption><span>Conference hall · Banquet layout study</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+    <p class="body reveal d1">The conference-hall proposal imagines a setting for shared occasions. Its layout, capacity and event capabilities are still to be confirmed.</p>
+  </div>
+</section>
+
+<!-- Closing -->
+<section class="band gray" id="visit">
+  <div class="inner">
+    <p class="eyebrow reveal">A first look. A story still unfolding.</p>
+    <h2 class="reveal d1">A place<br>taking shape.</h2>
+  </div>
+  <div class="wide">
+    <figure class="reveal"><div class="well"><img src="../assets/resort/scenes/web/dusk-pool-candidate-p38.jpg" alt="Dusk study over still pool water" loading="lazy"></div>
+      <figcaption><span>Dusk pool study</span><span>Artist's impression. Design subject to change.</span></figcaption></figure>
+  </div>
+  <div class="inner">
+    <div class="links reveal d2"><a class="pill-btn" href="#vision">Explore the vision ↑</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="inner">
+    <div><p>Golden Hills Resort is a working name for this local preview.</p>
+      <p>All property imagery is artist's impression. Design subject to change.</p></div>
+    <a href="#top">Back to top ↑</a>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var intro = document.getElementById('intro');
+  var stage = document.getElementById('stage');
+  var bigLogo = document.getElementById('bigLogo');
+  var veil = document.getElementById('veil');
+  var meta = document.getElementById('introMeta');
+  var cue = document.getElementById('cue');
+  var hero = document.getElementById('stageHero');
+  var chrome = document.getElementById('chrome');
+  var navLogo = document.getElementById('navLogo');
+  var progress = document.getElementById('progress');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('[data-slide]'));
+  var caps = Array.prototype.slice.call(document.querySelectorAll('[data-cap]'));
+  var heroImgs = Array.prototype.slice.call(document.querySelectorAll('[data-hero-img]'));
+  var dots = Array.prototype.slice.call(document.querySelectorAll('#dots i'));
+  var footLabel = document.getElementById('footLabel');
+  var labels = ['Pool cottage concept', 'Reception lounge concept', 'Cottage interior study'];
+  var cur = 0, timer = null, travel = 0, dockScale = 1, max = 1, played = false;
+
+  function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function band(x, a, b) { return smooth((x - a) / (b - a)); }
+  // arch keyframes: [e, top, sides, bottom, radiusTop] — mirrors the main site's opening reveal
+  var KEYS = [
+    [0, 50, 50, 50, 50], [0.18, 50, 50, 50, 50],
+    [0.30, 46, 42, 46, 50], [0.55, 18, 16, 18, 38], [0.86, 0, 0, 0, 0], [1, 0, 0, 0, 0]
+  ];
+  function arch(e) {
+    var i = 0;
+    while (i < KEYS.length - 2 && e > KEYS[i + 1][0]) i++;
+    var a = KEYS[i], b = KEYS[i + 1];
+    var t = smooth((e - a[0]) / Math.max(0.0001, b[0] - a[0]));
+    var top = lerp(a[1], b[1], t), side = lerp(a[2], b[2], t),
+        bot = lerp(a[3], b[3], t), r = lerp(a[4], b[4], t);
+    return 'inset(' + top.toFixed(2) + '% ' + side.toFixed(2) + '% ' + bot.toFixed(2) + '% ' + side.toFixed(2) +
+      '% round ' + r.toFixed(1) + '% ' + r.toFixed(1) + '% 0% 0%)';
+  }
+  function measure() {
+    var stageH = stage.offsetHeight;
+    travel = (53 / 2 - stageH / 2);
+    dockScale = 104 / Math.max(1, bigLogo.offsetWidth);
+    max = Math.max(1, intro.offsetHeight - stageH);
+  }
+  function paint() {
+    var y = window.scrollY || 0;
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.transform = 'scaleX(' + (h > 0 ? Math.min(1, y / h) : 0) + ')';
+    var p = Math.max(0, Math.min(1, y / max));
+    if (!played && p >= 0.999) played = true;
+    var e = (played || reduce) ? 1 : smooth(Math.min(1, p / 0.78));
+    bigLogo.style.transform = 'translate(-50%,-50%) translateY(' + (travel * e).toFixed(1) +
+      'px) scale(' + lerp(1, dockScale, e).toFixed(4) + ')';
+    bigLogo.style.opacity = ((played || reduce) && y < max) ? 0 : 1;
+    veil.style.opacity = (1 - band(e, 0.28, 0.88)).toFixed(3);
+    var fade = (1 - band(e, 0, 0.35)).toFixed(3);
+    meta.style.opacity = fade; cue.style.opacity = fade;
+    cue.style.pointerEvents = e > 0.3 ? 'none' : 'auto';
+    chrome.style.opacity = band(e, 0.58, 0.9).toFixed(3);
+    navLogo.style.opacity = band(e, 0.72, 0.95).toFixed(3);
+    hero.style.clipPath = reduce ? 'none' : arch(e);
+    var open = band(e, 0.76, 0.94);
+    heroImgs.forEach(function (img) {
+      img.style.transform = 'scale(' + lerp(1.12, 1, band(e, 0.16, 0.92)).toFixed(4) + ')';
+    });
+    slides.forEach(function (s, i) {
+      s.style.opacity = (i === cur ? open : 0).toFixed(3);
+      s.style.pointerEvents = i === cur ? 'auto' : 'none';
+    });
+    var opened = reduce || e > 0.9;
+    document.getElementById('prev').style.display = opened ? '' : 'none';
+    document.getElementById('next').style.display = opened ? '' : 'none';
+  }
+  var ticking = false;
+  function onScroll() {
+    if (!ticking) { ticking = true; requestAnimationFrame(function () { paint(); navbehave(); ticking = false; }); }
+  }
+  function go(n) {
+    cur = (n + slides.length) % slides.length;
+    dots.forEach(function (d, i) { d.classList.toggle('on', i === cur); });
+    footLabel.textContent = labels[cur];
+    paint();
+  }
+  function auto() {
+    clearInterval(timer);
+    if (!reduce) timer = setInterval(function () {
+      if ((window.scrollY || 0) < max) go(cur + 1);
+    }, 6000);
+  }
+  document.getElementById('next').addEventListener('click', function () { go(cur + 1); auto(); });
+  document.getElementById('prev').addEventListener('click', function () { go(cur - 1); auto(); });
+  dots.forEach(function (d, i) { d.addEventListener('click', function () { go(i); auto(); }); });
+  window.addEventListener('resize', function () { measure(); paint(); });
+  window.addEventListener('scroll', onScroll, { passive: true });
+  measure(); go(0); auto();
+  // richer nav: mobile menu, scrollspy, hide-on-scroll after the intro
+  var nav = document.getElementById('nav');
+  var menuBtn = document.getElementById('menuBtn');
+  var panel = document.getElementById('mobilePanel');
+  var lastY = 0;
+  menuBtn.addEventListener('click', function () {
+    var open = panel.classList.toggle('open');
+    menuBtn.classList.toggle('x', open);
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  });
+  panel.addEventListener('click', function (ev) {
+    if (ev.target.closest('a')) {
+      panel.classList.remove('open');
+      menuBtn.classList.remove('x');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  function navbehave() {
+    var y = window.scrollY || 0;
+    var down = y > lastY;
+    lastY = y;
+    if (reduce || !played) { nav.classList.remove('hide'); return; }
+    if (down && y > 260) {
+      nav.classList.add('hide');
+      panel.classList.remove('open');
+      menuBtn.classList.remove('x');
+    } else if (!down) {
+      nav.classList.remove('hide');
+    }
+  }
+  var spy = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      var id = '#' + en.target.id;
+      Array.prototype.forEach.call(document.querySelectorAll('.nav a[href="' + id + '"]'),
+        function (a) { a.classList.add('active'); });
+      Array.prototype.forEach.call(document.querySelectorAll('.nav a.active'),
+        function (a) { if (a.getAttribute('href') !== id) a.classList.remove('active'); });
+    });
+  }, { rootMargin: '-38% 0px -55% 0px' });
+  ['vision', 'cottages', 'spaces', 'dining', 'gatherings', 'visit'].forEach(function (id) {
+    var s = document.getElementById(id);
+    if (s) spy.observe(s);
+  });
+  setTimeout(function () { measure(); paint(); }, 300);
+  if (reduce) return;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+})();
+</script>
+</body>
+</html>
